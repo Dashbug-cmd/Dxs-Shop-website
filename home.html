@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DxS Shop</title>
+  <style>
+    :root{
+      --accent:#2563eb;
+      --muted:#6b7280;
+      --bg:#f8fafc;
+      --card:#ffffff;
+      --radius:12px;
+      --max-width:1100px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:#0f172a}
+    .container{max-width:var(--max-width);margin:32px auto;padding:0 20px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+    h1{font-size:20px;margin:0}
+
+    /* search and filters */
+    .controls{display:flex;gap:12px;align-items:center}
+    .search{background:var(--card);padding:8px 12px;border-radius:999px;display:flex;align-items:center;gap:8px;box-shadow:0 1px 3px rgba(2,6,23,0.06)}
+    .search input{border:0;outline:0;background:transparent;font-size:14px}
+    .select{background:var(--card);padding:8px;border-radius:10px;box-shadow:0 1px 3px rgba(2,6,23,0.06)}
+
+    /* layout */
+    .layout{display:grid;grid-template-columns:1fr 340px;gap:20px}
+
+    /* products */
+    .products{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+    .card{background:var(--card);border-radius:var(--radius);overflow:hidden;box-shadow:0 6px 18px rgba(2,6,23,0.06);display:flex;flex-direction:column}
+    .card .img{height:160px;background-size:cover;background-position:center}
+    .card .body{padding:12px;flex:1;display:flex;flex-direction:column}
+    .product-title{font-weight:600;margin:0 0 6px;font-size:15px}
+    .product-desc{font-size:13px;color:var(--muted);margin-bottom:8px}
+    .price-row{display:flex;align-items:center;justify-content:space-between;margin-top:auto}
+    .price{font-weight:700}
+    .btn{background:var(--accent);color:#fff;padding:8px 10px;border-radius:8px;border:0;cursor:pointer}
+    .btn.secondary{background:transparent;color:var(--accent);border:1px solid rgba(37,99,235,0.12)}
+
+    /* cart */
+    .cart{background:var(--card);border-radius:var(--radius);padding:12px;position:sticky;top:24px;height:fit-content}
+    .cart h3{margin:0 0 12px}
+    .cart-list{display:flex;flex-direction:column;gap:10px;max-height:360px;overflow:auto;padding-right:6px}
+    .cart-item{display:flex;gap:10px;align-items:center}
+    .cart-thumb{width:56px;height:56px;border-radius:8px;background-size:cover;background-position:center;flex-shrink:0}
+    .cart-meta{flex:1}
+    .qty-control{display:flex;align-items:center;gap:6px}
+    .small{font-size:13px;color:var(--muted)}
+    .total-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+
+    /* responsive */
+    @media (max-width:880px){
+      .layout{grid-template-columns:1fr}
+      .cart{position:relative}
+    }
+
+    /* tiny helpers */
+    .muted{color:var(--muted)}
+    .pill{background:#e48b05;color:#3730a3;padding:6px 10px;border-radius:999px;font-weight:600}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>DxS Shop</h1>
+        <div class="small muted">u can buy special things in game</div>
+      </div>
+
+      <div class="controls">
+        <div class="search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="11" cy="11" r="6" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <input id="search" placeholder="Keresés..." />
+        </div>
+        <select id="category" class="select">
+          <option value="all">Összes kategória</option>
+          <option value="letter">tags</option>
+          <option value="tag">special letter</option>
+          
+        </select>
+        <div class="pill" id="cart-count">0</div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="muted">Találatok: <span id="result-count">0</span></div>
+          <div class="muted">Rendezés: 
+            <select id="sort" class="select">
+              <option value="default">Alapértelmezett</option>
+              <option value="price-asc">Ár növekvő</option>
+              <option value="price-desc">Ár csökkenő</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="products" id="products"></div>
+
+      </section>
+
+      <aside class="cart" id="cart">
+        <h3>Kosár</h3>
+        <div class="cart-list" id="cart-list">
+          <div class="muted">A kosár üres.</div>
+        </div>
+        <div class="total-row">
+          <div class="small">Összesen:</div>
+          <div><strong id="total">0 Ft</strong></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn" id="checkout">Fizetés</button>
+          <button class="btn secondary" id="clear-cart">Törlés</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    // Példa terméklista — később kérheted, hogy töltsük be szerverről (JSON / API)
+    const PRODUCTS = [
+      {id:1,title:'Green [D]',desc:'its worth it',price:2000,category:'clothes',img:'file:///C:/Users/Adam/Downloads/Kepernyokep_2025-11-01_212501.webp'},
+      {id:2,title:'Meow tag',desc:'its worth it',price:3450,category:'accessories',img:'file:///C:/Users/Adam/Downloads/image%20(5).webp'},
+      {id:3,title:'Ckms tag',desc:'its worth it',price:4867,category:'accessories',img:'file:///C:/Users/Adam/Downloads/Kepernyokep_2025-11-01_225947.webp'},
+      {id:4,title:'Vip tag',desc:'its worth it',price:2567,category:'clothes',img:'file:///C:/Users/Adam/Downloads/image%20(1).webp'},
+      {id:6,title:'Vip + tag',desc:'its worth it',price:7457,category:'home',img:'file:///C:/Users/Adam/Downloads/image%20(3).webp'}
+    ];
+
+    // Kosár (localStorage)
+    const CART_KEY = 'mini_shop_cart_v1';
+    let cart = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
+
+    const productsEl = document.getElementById('products');
+    const cartListEl = document.getElementById('cart-list');
+    const totalEl = document.getElementById('total');
+    const cartCountEl = document.getElementById('cart-count');
+    const resultCountEl = document.getElementById('result-count');
+
+    function formatPrice(n){ return n.toLocaleString('hu-HU') + ' Ft' }
+
+    function renderProducts(list){
+      productsEl.innerHTML = '';
+      if(list.length===0){ productsEl.innerHTML = '<div class="muted">Nincs találat.</div>'; return; }
+      resultCountEl.textContent = list.length;
+      for(const p of list){
+        const card = document.createElement('div'); card.className='card';
+        card.innerHTML = `
+          <div class="img" style="background-image:url('${p.img}')"></div>
+          <div class="body">
+            <h4 class="product-title">${p.title}</h4>
+            <div class="product-desc">${p.desc}</div>
+            <div class="price-row">
+              <div>
+                <div class="price">${formatPrice(p.price)}</div>
+                <div class="small muted">Kategória: ${p.category}</div>
+              </div>
+              <div>
+                <button class="btn" data-id="${p.id}">Kosárba</button>
+              </div>
+            </div>
+          </div>
+        `;
+        productsEl.appendChild(card);
+      }
+    }
+
+    function saveCart(){ localStorage.setItem(CART_KEY, JSON.stringify(cart)); }
+
+    function addToCart(id){
+      cart[id] = (cart[id] || 0) + 1;
+      saveCart();
+      renderCart();
+    }
+
+    function removeFromCart(id){
+      delete cart[id];
+      saveCart();
+      renderCart();
+    }
+
+    function changeQty(id, qty){
+      if(qty<=0){ removeFromCart(id); return; }
+      cart[id] = qty; saveCart(); renderCart();
+    }
+
+    function renderCart(){
+      cartListEl.innerHTML = '';
+      const ids = Object.keys(cart);
+      if(ids.length===0){ cartListEl.innerHTML = '<div class="muted">A kosár üres.</div>'; totalEl.textContent='0 Ft'; cartCountEl.textContent='0'; return; }
+      let total = 0; let count = 0;
+      for(const id of ids){
+        const p = PRODUCTS.find(x=>x.id==id);
+        const qty = cart[id];
+        if(!p) continue;
+        total += p.price * qty; count += qty;
+        const item = document.createElement('div'); item.className='cart-item';
+        item.innerHTML = `
+          <div class="cart-thumb" style="background-image:url('${p.img}')"></div>
+          <div class="cart-meta">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><strong>${p.title}</strong></div>
+              <div class="small">${formatPrice(p.price * qty)}</div>
+            </div>
+            <div class="small">${p.desc}</div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+              <div class="qty-control">
+                <button class="btn secondary" data-action="dec" data-id="${id}">-</button>
+                <div class="small">${qty}</div>
+                <button class="btn" data-action="inc" data-id="${id}">+</button>
+              </div>
+              <button class="btn secondary" data-action="remove" data-id="${id}">Eltávolít</button>
+            </div>
+          </div>
+        `;
+        cartListEl.appendChild(item);
+      }
+      totalEl.textContent = formatPrice(total);
+      cartCountEl.textContent = count;
+    }
+
+    // Hookok
+    document.addEventListener('click', e=>{
+      const btn = e.target.closest('button'); if(!btn) return;
+      if(btn.dataset.id){ addToCart(btn.dataset.id); }
+      if(btn.dataset.action){
+        const id = btn.dataset.id;
+        if(btn.dataset.action==='inc') changeQty(id, (cart[id]||0)+1);
+        if(btn.dataset.action==='dec') changeQty(id, (cart[id]||0)-1);
+        if(btn.dataset.action==='remove') removeFromCart(id);
+      }
+    });
+
+    document.getElementById('clear-cart').addEventListener('click', ()=>{ cart = {}; saveCart(); renderCart(); });
+    document.getElementById('checkout').addEventListener('click', ()=>{
+      if(Object.keys(cart).length===0){ alert('A kosár üres.'); return; }
+      // Itt jönne a valódi fizetési folyamat (stripe/paypal/bank).
+      alert('Sikeres rendelés! (Screen shot this and Dm me)\nKöszönjük a vásárlást.');
+      cart = {}; saveCart(); renderCart();
+    });
+
+    // Keresés / szűrés / rendezés
+    function filterAndRender(){
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      const cat = document.getElementById('category').value;
+      const sort = document.getElementById('sort').value;
+      let out = PRODUCTS.filter(p=>{
+        if(cat!=='all' && p.category!==cat) return false;
+        if(q==='') return true;
+        return p.title.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q);
+      });
+      if(sort==='price-asc') out.sort((a,b)=>a.price-b.price);
+      if(sort==='price-desc') out.sort((a,b)=>b.price-a.price);
+      renderProducts(out);
+    }
+
+    document.getElementById('search').addEventListener('input', filterAndRender);
+    document.getElementById('category').addEventListener('change', filterAndRender);
+    document.getElementById('sort').addEventListener('change', filterAndRender);
+
+    // Inicializálás
+    filterAndRender();
+    renderCart();
+  </script>
+</body>
+</html>
